@@ -1,39 +1,54 @@
 # SayIt
 
-SayIt is an Android app for managing daily tasks with voice commands.
+SayIt is an Android task management app designed around voice-first interaction.
 
-It opens on today's task list, supports a monthly calendar view, and lets you create, complete, query, and delete tasks by speaking in Chinese.
+The app opens on today's task list, supports a monthly calendar view, and allows users to create, complete, review, and delete tasks using short spoken commands in Chinese.
 
-## Features
+## Why This Project Exists
 
-- Voice-first daily task management
-- Today's task list as the default home screen
-- Monthly calendar view with date-based task browsing
-- Task status colors
+Many lightweight task apps still assume that users want to type, tap through multiple screens, and manually organize daily items. SayIt explores a different interaction model:
+
+- capture tasks as quickly as a spoken thought
+- keep today's work immediately visible
+- make calendar navigation simple and visual
+- reduce friction for repetitive daily task management
+
+This repository currently contains a working Android prototype built with Kotlin, Jetpack Compose, and Room.
+
+## Core Features
+
+- Voice-first task input and task updates
+- Today's task list as the default entry screen
+- Monthly calendar view for browsing tasks by date
+- Tap any calendar cell to open that day's task list
+- Visual task status by date
   - Blue: completed
   - Light red: overdue and unfinished
   - White: pending and not overdue
-- Double-tap blank space on the main page to start listening
-- Built-in voice feedback with Android TextToSpeech
-- Custom app icon and in-app branding
+- Double-tap blank space on the main screen to start listening
+- Collapsible quick-command hint card
+- Custom app icon and in-app brand treatment
 
-## Voice Commands
+## Supported Voice Commands
 
-Examples currently supported:
+Current examples include:
 
-- `记录我今天完成小红书文案`
-- `小红书文案完成`
-- `告诉我今天未完成的任务`
-- `告诉我今天完成的任务`
-- `删除今天的所有任务`
+- `Record a task for today`
+- `Mark a task as completed`
+- `Tell me today's unfinished tasks`
+- `Tell me today's completed tasks`
+- `Delete all tasks for today`
 
-## Main Interaction
+In the current build, the actual recognition phrases are implemented in Chinese because the product flow is focused on Chinese-speaking usage.
+
+## Interaction Model
 
 - App launch opens today's task list
-- Press back from task list to open the monthly calendar
-- Press back from calendar to return to today's task list
-- Tap a calendar cell to open that day's task list
-- The "可以直接说" card on the home page can be collapsed
+- Back from task list opens the monthly calendar
+- Back from calendar returns to today's task list
+- Tapping a date cell opens that day's tasks
+- The primary voice button shows explicit listening and processing states
+- The header also surfaces system feedback such as listening, processing, and recognition results
 
 ## Tech Stack
 
@@ -41,22 +56,24 @@ Examples currently supported:
 - Android Jetpack Compose
 - Room
 - Android TextToSpeech
-- Android speech recognition via `RecognizerIntent`
+- Android system speech recognition via `RecognizerIntent`
 
-## Current Speech Recognition Note
+## Current Speech Recognition Limitation
 
-The current implementation uses Android system speech recognition through `RecognizerIntent`.
+The current prototype uses Android system speech recognition through `RecognizerIntent`.
 
-This is fast to integrate, but availability depends on the speech service installed on the device. For users in mainland China, Google-backed recognition may be slow or unavailable. The app currently includes:
+That makes the prototype fast to build, but it also means recognition quality, latency, and availability depend on the speech service installed on the device. In mainland China, Google-backed recognition may be slow, unavailable, or inconsistent.
 
-- listening state UI
-- processing state UI
-- `EXTRA_PREFER_OFFLINE` hint for the system recognizer
+The current implementation already includes:
 
-If you need a production-ready China-friendly solution, the next recommended step is replacing this layer with:
+- listening state feedback
+- processing state feedback
+- an offline preference hint via `RecognizerIntent.EXTRA_PREFER_OFFLINE`
+
+For production use in China, the recommended next step is to replace the current recognition layer with either:
 
 - a domestic speech SDK such as Baidu or Aliyun, or
-- a fully offline engine such as `sherpa-onnx`
+- a fully offline speech recognition engine such as `sherpa-onnx`
 
 ## Requirements
 
@@ -67,13 +84,14 @@ If you need a production-ready China-friendly solution, the next recommended ste
 ## Open In Android Studio
 
 1. Open Android Studio
-2. Select `Open`
-3. Choose this project folder
+2. Choose `Open`
+3. Select this project folder
 4. Wait for Gradle sync to finish
 
 If Gradle JDK is not configured, use Android Studio's embedded JDK:
 
-- `File` -> `Settings` -> `Build, Execution, Deployment` -> `Build Tools` -> `Gradle`
+- `File` -> `Settings`
+- `Build, Execution, Deployment` -> `Build Tools` -> `Gradle`
 - Set `Gradle JDK` to `jbr`
 
 ## Run The App
@@ -115,23 +133,39 @@ app/src/main/java/com/example/sayit/
 
 - `RECORD_AUDIO`
 
-## Assets
+## Visual Assets
 
-App icon source files are stored in:
+Source icon assets are stored in:
 
 - `img/`
 
-## Status
+## Build Status
 
-This repository contains a working Android prototype and currently builds successfully with:
+This repository builds successfully with:
 
 ```powershell
 .\gradlew.bat assembleDebug
 ```
 
+## Case Study
+
+If you want to present this project as a portfolio piece or LinkedIn case study, see:
+
+- [`docs/case-study.md`](docs/case-study.md)
+
+That document includes:
+
+- product framing
+- problem statement
+- user needs
+- functional requirements
+- design decisions
+- technical tradeoffs
+- slide-ready outline
+
 ## Roadmap
 
 - Replace system speech recognition with a China-friendly solution
-- Add better release packaging and signing flow
-- Improve task editing and deletion controls in UI
-- Add release notes and APK distribution
+- Add stronger task editing and deletion controls in UI
+- Add signed release packaging
+- Add screenshots, release notes, and APK distribution
