@@ -1,7 +1,8 @@
-﻿package com.example.sayit.data
+package com.example.sayit.data
 
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import kotlin.math.max
 import kotlin.math.min
 
@@ -23,16 +24,16 @@ class TaskRepository(private val taskDao: TaskDao) {
     suspend fun addTaskForDate(rawTitle: String, date: LocalDate): VoiceActionResult {
         val title = sanitizeTaskTitle(rawTitle)
         if (title.isBlank()) {
-            return VoiceActionResult("没听清任务内容，请再说一次。")
+            return VoiceActionResult("I couldn't catch the task. Please try again.")
         }
 
         val dateKey = date.toString()
         val dayLabel = dayLabel(date)
-        val todayTasks = taskDao.getTasksForDate(dateKey)
+        val tasksForDate = taskDao.getTasksForDate(dateKey)
         val normalized = normalizeForMatch(title)
-        val duplicate = todayTasks.firstOrNull { it.normalizedTitle == normalized }
+        val duplicate = tasksForDate.firstOrNull { it.normalizedTitle == normalized }
         if (duplicate != null) {
-            return VoiceActionResult("${dayLabel}已经有这个任务：${duplicate.title}", duplicate.id)
+            return VoiceActionResult("This task already exists for $dayLabel: ${duplicate.title}", duplicate.id)
         }
 
         val task = TaskEntity(
@@ -41,7 +42,7 @@ class TaskRepository(private val taskDao: TaskDao) {
             createdDate = dateKey
         )
         val id = taskDao.insert(task)
-        return VoiceActionResult("已记录${dayLabel}任务：$title", id)
+        return VoiceActionResult("Added task for $dayLabel: $title", id)
     }
 
     suspend fun markTaskCompletedForToday(rawQuery: String): VoiceActionResult {
@@ -51,25 +52,25 @@ class TaskRepository(private val taskDao: TaskDao) {
     suspend fun markTaskCompletedForDate(rawQuery: String, date: LocalDate): VoiceActionResult {
         val query = sanitizeTaskTitle(rawQuery)
         if (query.isBlank()) {
-            return VoiceActionResult("没听清你要完成哪个任务，请再说一次。")
+            return VoiceActionResult("I couldn't tell which task you wanted to complete. Please try again.")
         }
 
         val dateKey = date.toString()
         val dayLabel = dayLabel(date)
-        val todayTasks = taskDao.getTasksForDate(dateKey)
-        if (todayTasks.isEmpty()) {
-            return VoiceActionResult("${dayLabel}还没有任何任务。")
+        val tasksForDate = taskDao.getTasksForDate(dateKey)
+        if (tasksForDate.isEmpty()) {
+            return VoiceActionResult("There are no tasks for $dayLabel.")
         }
 
-        val match = findBestMatch(query, todayTasks)
-            ?: return VoiceActionResult("没有找到和${query}相关的任务。")
+        val match = findBestMatch(query, tasksForDate)
+            ?: return VoiceActionResult("I couldn't find a task related to \"$query\".")
 
         if (match.isCompleted) {
-            return VoiceActionResult("${match.title} 已经完成过了。", match.id)
+            return VoiceActionResult("${match.title} is already marked as done.", match.id)
         }
 
         taskDao.updateCompletion(match.id, true, System.currentTimeMillis())
-        return VoiceActionResult("已完成任务：${match.title}", match.id)
+        return VoiceActionResult("Marked as done: ${match.title}", match.id)
     }
 
     suspend fun setTaskCompletion(taskId: Long, completed: Boolean) {
@@ -88,27 +89,32 @@ class TaskRepository(private val taskDao: TaskDao) {
         val deletedCount = taskDao.deleteTasksForDate(date.toString())
         val dayLabel = dayLabel(date)
         return if (deletedCount == 0) {
-            VoiceActionResult("${dayLabel}没有可删除的任务。")
+            VoiceActionResult("There are no tasks to delete for $dayLabel.")
         } else {
-            VoiceActionResult("已删除${dayLabel}的全部任务，共${deletedCount}项。")
+            VoiceActionResult("Deleted all tasks for $dayLabel. Total removed: $deletedCount.")
         }
     }
 
     suspend fun buildSummaryForDate(completed: Boolean, date: LocalDate): VoiceActionResult {
-        val todayTasks = taskDao.getTasksForDate(date.toString())
-        val filtered = todayTasks.filter { it.isCompleted == completed }
+        val tasksForDate = taskDao.getTasksForDate(date.toString())
+        val filtered = tasksForDate.filter { it.isCompleted == completed }
         val dayLabel = dayLabel(date)
+
         if (filtered.isEmpty()) {
             return if (completed) {
-                VoiceActionResult("${dayLabel}还没有已完成任务。")
+                VoiceActionResult("There are no completed tasks for $dayLabel.")
             } else {
-                VoiceActionResult("${dayLabel}没有未完成任务。")
+                VoiceActionResult("There are no outstanding tasks for $dayLabel.")
             }
         }
 
-        val prefix = if (completed) "${dayLabel}已完成" else "${dayLabel}未完成"
-        val titles = filtered.joinToString("，") { it.title }
-        return VoiceActionResult("$prefix ${filtered.size} 项：$titles")
+        val prefix = if (completed) {
+            "Completed tasks for $dayLabel"
+        } else {
+            "Outstanding tasks for $dayLabel"
+        }
+        val titles = filtered.joinToString(", ") { it.title }
+        return VoiceActionResult("$prefix (${filtered.size}): $titles")
     }
 
     private fun findBestMatch(query: String, tasks: List<TaskEntity>): TaskEntity? {
@@ -168,26 +174,24 @@ class TaskRepository(private val taskDao: TaskDao) {
     private fun dayLabel(date: LocalDate): String {
         val today = LocalDate.now()
         return if (date == today) {
-            "今天"
+            "today"
         } else {
-            "${date.monthValue}月${date.dayOfMonth}日"
+            date.format(DateTimeFormatter.ofPattern("MMM d"))
         }
     }
 
     private fun sanitizeTaskTitle(raw: String): String {
         return raw.trim()
-            .trim('。', '，', ',', '.', '！', '？', '、', ' ')
-            .replace(Regex("\\s+"), "")
+            .trim('.', ',', '!', '?', ';', ':', '"', '\'')
+            .replace(Regex("\\s+"), " ")
     }
 
     private fun normalizeForMatch(raw: String): String {
         return raw.lowercase()
-            .replace(Regex("[\\p{Punct}，。！？、；：‘’“”《》【】（）()\\s]"), "")
-            .replace("任务", "")
-            .replace("人物", "")
-            .replace("今天", "")
-            .replace("一下", "")
-            .replace("给我", "")
-            .replace("告诉我", "")
+            .replace(Regex("[\\p{Punct}\\s]"), "")
+            .replace("task", "")
+            .replace("today", "")
+            .replace("please", "")
+            .replace("my", "")
     }
 }

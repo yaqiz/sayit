@@ -1,4 +1,4 @@
-﻿package com.example.sayit
+package com.example.sayit
 
 import android.Manifest
 import android.content.ActivityNotFoundException
@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
             viewModel.handleVoiceText(spoken)
         } else {
             viewModel.onListeningFinishedWithoutResult()
-            speak("没有听清楚，请再试一次。")
+            speak("I didn't catch that. Please try again.")
         }
     }
 
@@ -57,8 +57,8 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         if (granted) {
             launchSpeechRecognizer()
         } else {
-            viewModel.onListeningFailed("需要麦克风权限才能使用语音。")
-            speak("需要麦克风权限才能使用语音。")
+            viewModel.onListeningFailed("Microphone permission is required for voice commands.")
+            speak("Microphone permission is required for voice commands.")
         }
     }
 
@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 SayitScreen(
                     uiState = state,
                     onStartListening = ::startVoiceFlow,
+                    onSubmitCommand = viewModel::handleVoiceText,
                     onToggleTask = viewModel::setTaskCompletion,
                     onOpenCalendar = viewModel::openCalendar,
                     onOpenDate = viewModel::openTasksForDate,
@@ -91,11 +92,11 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val result = textToSpeech?.setLanguage(Locale.SIMPLIFIED_CHINESE)
+            val result = textToSpeech?.setLanguage(Locale.US)
             ttsReady = result != TextToSpeech.LANG_MISSING_DATA &&
                 result != TextToSpeech.LANG_NOT_SUPPORTED
             if (!ttsReady) {
-                val fallback = textToSpeech?.setLanguage(Locale.CHINA)
+                val fallback = textToSpeech?.setLanguage(Locale.UK)
                 ttsReady = fallback != TextToSpeech.LANG_MISSING_DATA &&
                     fallback != TextToSpeech.LANG_NOT_SUPPORTED
             }
@@ -121,20 +122,28 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun launchSpeechRecognizer() {
+        val languageTag = Locale.US.toLanguageTag()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "zh-CN")
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "请直接说出任务命令")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, languageTag)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a task command")
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+
+        if (intent.resolveActivity(packageManager) == null) {
+            val message = "English speech recognition is not available on this device."
+            viewModel.onListeningFailed(message)
+            speak(message)
+            return
         }
 
         try {
             speechLauncher.launch(intent)
         } catch (_: ActivityNotFoundException) {
-            viewModel.onListeningFailed("当前设备没有可用的语音识别服务。")
-            speak("当前设备没有可用的语音识别服务。")
+            val message = "English speech recognition is not available on this device."
+            viewModel.onListeningFailed(message)
+            speak(message)
         }
     }
 

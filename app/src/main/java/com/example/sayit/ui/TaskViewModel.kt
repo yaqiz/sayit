@@ -44,7 +44,7 @@ data class TaskUiState(
     val isListening: Boolean = false,
     val isProcessingVoice: Boolean = false,
     val lastHeardText: String = "",
-    val statusMessage: String = "点击按钮后直接说：记录小红书文案"
+    val statusMessage: String = "Tap the button and say something like: I need to go to supermarket"
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -92,7 +92,7 @@ class TaskViewModel(
                 lastHeardText = text,
                 isListening = false,
                 isProcessingVoice = true,
-                statusMessage = "正在处理：$text"
+                statusMessage = "Processing: $text"
             )
         }
         viewModelScope.launch {
@@ -103,7 +103,7 @@ class TaskViewModel(
                 is VoiceCommand.QueryTasks -> repository.buildSummaryForDate(command.completed, selectedDate)
                 VoiceCommand.DeleteTodayTasks -> repository.deleteAllTasksForToday()
                 is VoiceCommand.Unknown -> VoiceActionResult(
-                    "没有识别到有效指令。可以说：记录小红书文案，或者：告诉我今天未完成的任务。"
+                    "I couldn't recognize a supported command. Try: I need to go to supermarket."
                 )
             }
             publishMessage(result.message, speak = true)
@@ -115,7 +115,7 @@ class TaskViewModel(
             it.copy(
                 isListening = true,
                 isProcessingVoice = false,
-                statusMessage = "正在听，请直接说任务指令..."
+                statusMessage = "Listening... Say your task command."
             )
         }
     }
@@ -125,7 +125,7 @@ class TaskViewModel(
             it.copy(
                 isListening = false,
                 isProcessingVoice = false,
-                statusMessage = "没有听清楚，请再试一次。"
+                statusMessage = "I didn't catch that. Please try again."
             )
         }
     }
@@ -144,9 +144,9 @@ class TaskViewModel(
         viewModelScope.launch {
             repository.setTaskCompletion(task.id, completed)
             val message = if (completed) {
-                "已完成：${task.title}"
+                "Marked as done: ${task.title}"
             } else {
-                "已改为未完成：${task.title}"
+                "Marked as outstanding: ${task.title}"
             }
             publishMessage(message, speak = false)
         }

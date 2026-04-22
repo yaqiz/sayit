@@ -23,11 +23,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,6 +57,7 @@ import com.example.sayit.R
 import com.example.sayit.data.TaskEntity
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 
 private val AppBackground = Brush.verticalGradient(
     colors = listOf(Color(0xFFF6F2EA), Color(0xFFE9EEF5))
@@ -73,6 +79,7 @@ fun SayitTheme(content: @Composable () -> Unit) {
 fun SayitScreen(
     uiState: TaskUiState,
     onStartListening: () -> Unit,
+    onSubmitCommand: (String) -> Unit,
     onToggleTask: (TaskEntity, Boolean) -> Unit,
     onOpenCalendar: () -> Unit,
     onOpenDate: (LocalDate) -> Unit,
@@ -93,6 +100,7 @@ fun SayitScreen(
                 TaskListScreen(
                     uiState = uiState,
                     onStartListening = onStartListening,
+                    onSubmitCommand = onSubmitCommand,
                     onToggleTask = onToggleTask,
                     onOpenCalendar = onOpenCalendar
                 )
@@ -110,9 +118,12 @@ fun SayitScreen(
 private fun TaskListScreen(
     uiState: TaskUiState,
     onStartListening: () -> Unit,
+    onSubmitCommand: (String) -> Unit,
     onToggleTask: (TaskEntity, Boolean) -> Unit,
     onOpenCalendar: () -> Unit
 ) {
+    var commandText by rememberSaveable { mutableStateOf("") }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -132,9 +143,9 @@ private fun TaskListScreen(
                 ) {
                     Text(
                         text = when {
-                            uiState.isListening -> "正在听..."
-                            uiState.isProcessingVoice -> "处理中..."
-                            else -> "开始语音"
+                            uiState.isListening -> "Listening..."
+                            uiState.isProcessingVoice -> "Processing..."
+                            else -> "Start Voice"
                         }
                     )
                 }
@@ -164,6 +175,19 @@ private fun TaskListScreen(
                     TipsCard()
                 }
                 item {
+                    ManualCommandCard(
+                        commandText = commandText,
+                        onCommandTextChange = { commandText = it },
+                        onSubmit = {
+                            val command = commandText.trim()
+                            if (command.isNotBlank()) {
+                                onSubmitCommand(command)
+                                commandText = ""
+                            }
+                        }
+                    )
+                }
+                item {
                     Text(
                         text = buildTaskListTitle(uiState.selectedDate),
                         style = MaterialTheme.typography.headlineSmall.copy(
@@ -185,6 +209,48 @@ private fun TaskListScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManualCommandCard(
+    commandText: String,
+    onCommandTextChange: (String) -> Unit,
+    onSubmit: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = CardCream)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Manual command input",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Text(
+                text = "Use this if voice recognition is unavailable on your device.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF4C5B5C)
+            )
+            OutlinedTextField(
+                value = commandText,
+                onValueChange = onCommandTextChange,
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                placeholder = {
+                    Text("Example: I need to go to supermarket")
+                }
+            )
+            Button(
+                onClick = onSubmit,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Submit")
             }
         }
     }
@@ -271,7 +337,7 @@ private fun HeaderCard(
                     }
                 }
                 Text(
-                    text = "月历",
+                    text = "Calendar",
                     color = Color.White,
                     modifier = Modifier
                         .clip(CircleShape)
@@ -283,7 +349,7 @@ private fun HeaderCard(
             Spacer(modifier = Modifier.height(12.dp))
             if (isListening || isProcessingVoice) {
                 Text(
-                    text = if (isListening) "状态：正在听你说话..." else "状态：正在处理识别结果...",
+                    text = if (isListening) "Status: listening to your command..." else "Status: processing recognition result...",
                     color = Color(0xFFB9D8FF),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
                 )
@@ -297,7 +363,7 @@ private fun HeaderCard(
             if (lastHeardText.isNotBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "识别到：$lastHeardText",
+                    text = "Heard: $lastHeardText",
                     color = Color.White.copy(alpha = 0.82f),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -332,7 +398,7 @@ private fun CalendarHeaderCard(selectedDate: LocalDate) {
                         style = MaterialTheme.typography.labelLarge
                     )
                     Text(
-                        text = "上下滚动切换月份",
+                        text = "Scroll up and down to browse months",
                         color = Color.White,
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontFamily = FontFamily.Serif,
@@ -342,7 +408,7 @@ private fun CalendarHeaderCard(selectedDate: LocalDate) {
                 }
             }
             Text(
-                text = "点击日期进入当天 task list。当前选中：${buildDateTitle(selectedDate)}",
+                text = "Tap a date to open that day's task list. Selected: ${buildDateTitle(selectedDate)}",
                 color = Color.White.copy(alpha = 0.84f),
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -372,23 +438,23 @@ private fun TipsCard() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (expanded) "可以直接说" else "可以直接说...",
+                    text = if (expanded) "Try saying" else "Try saying...",
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
-                Text(
-                    text = if (expanded) "<<" else ">>",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color(0xFF245FAF)
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse tips" else "Expand tips",
+                    tint = Color(0xFF245FAF)
                 )
             }
             if (!expanded) {
                 return@Column
             }
-            Text(text = "记录我今天完成小红书文案")
-            Text(text = "小红书文案完成")
-            Text(text = "告诉我今天未完成的任务")
-            Text(text = "告诉我今天完成的任务")
-            Text(text = "删除今天的所有任务")
+            Text(text = "I need to go to supermarket")
+            Text(text = "go to supermarket done")
+            Text(text = "tell me about my today's outstanding tasks")
+            Text(text = "tell me about my today's completed tasks")
+            Text(text = "delete all tasks for today")
         }
     }
 }
@@ -401,9 +467,9 @@ private fun EmptyStateCard(selectedDate: LocalDate) {
     ) {
         Text(
             text = if (selectedDate == LocalDate.now()) {
-                "今天还没有任务，先说一句“记录小红书文案”。"
+                "There are no tasks for today yet. Try saying: I need to go to supermarket."
             } else {
-                "${selectedDate.monthValue}月${selectedDate.dayOfMonth}日还没有任务。"
+                "There are no tasks for ${selectedDate.format(DateTimeFormatter.ofPattern("MMM d"))}."
             },
             modifier = Modifier.padding(18.dp),
             style = MaterialTheme.typography.bodyLarge
@@ -427,7 +493,7 @@ private fun MonthCard(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "${month.year}年 ${month.monthValue}月",
+                text = month.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold
@@ -461,7 +527,7 @@ private fun MonthCard(
 
 @Composable
 private fun WeekdayHeader() {
-    val weekdays = listOf("日", "一", "二", "三", "四", "五", "六")
+    val weekdays = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -523,9 +589,9 @@ private fun DayCell(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = when {
-                isCompleted -> "完成"
-                isOverdue -> "过期"
-                else -> "${summary?.totalCount ?: 0}项"
+                isCompleted -> "Done"
+                isOverdue -> "Overdue"
+                else -> "${summary?.totalCount ?: 0} item"
             },
             color = textColor,
             style = MaterialTheme.typography.labelSmall
@@ -569,18 +635,14 @@ private fun TaskRow(
                     text = task.title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        textDecoration = if (task.isCompleted) {
-                            TextDecoration.LineThrough
-                        } else {
-                            TextDecoration.None
-                        }
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                     )
                 )
                 Text(
                     text = when {
-                        task.isCompleted -> "已完成"
-                        selectedDate.isBefore(today) -> "已过期未完成"
-                        else -> "未完成"
+                        task.isCompleted -> "Completed"
+                        selectedDate.isBefore(today) -> "Overdue"
+                        else -> "Outstanding"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF4C5B5C)
@@ -592,17 +654,17 @@ private fun TaskRow(
 
 private fun buildDateTitle(date: LocalDate): String {
     return if (date == LocalDate.now()) {
-        "今天的任务"
+        "Today's Tasks"
     } else {
-        "${date.monthValue}月${date.dayOfMonth}日任务"
+        date.format(DateTimeFormatter.ofPattern("MMM d")) + " Tasks"
     }
 }
 
 private fun buildTaskListTitle(date: LocalDate): String {
     return if (date == LocalDate.now()) {
-        "今天的 task list"
+        "Today's Task List"
     } else {
-        "${date.monthValue}月${date.dayOfMonth}日的 task list"
+        date.format(DateTimeFormatter.ofPattern("MMM d")) + " Task List"
     }
 }
 

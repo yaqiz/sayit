@@ -8,3 +8,5 @@ captures/
 .DS_Store
 Thumbs.db
 *.log
+web/node_modules/
+web/dist/

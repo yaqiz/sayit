@@ -1,4 +1,4 @@
-﻿package com.example.sayit.voice
+package com.example.sayit.voice
 
 sealed interface VoiceCommand {
     data class AddTask(val title: String) : VoiceCommand
@@ -15,10 +15,10 @@ object VoiceCommandParser {
             return VoiceCommand.Unknown(text)
         }
 
-        if (isQuery(spoken, completed = false)) {
+        if (isOutstandingQuery(spoken)) {
             return VoiceCommand.QueryTasks(completed = false)
         }
-        if (isQuery(spoken, completed = true)) {
+        if (isCompletedQuery(spoken)) {
             return VoiceCommand.QueryTasks(completed = true)
         }
         if (isDeleteTodayTasks(spoken)) {
@@ -31,64 +31,78 @@ object VoiceCommandParser {
         return VoiceCommand.Unknown(spoken)
     }
 
-    private fun isQuery(text: String, completed: Boolean): Boolean {
-        val normalized = text.replace(" ", "")
-        val keywords = if (completed) {
-            listOf(
-                "告诉我今天完成的任务",
-                "告诉我今天已完成的任务",
-                "告诉我今天完成的人物",
-                "今天完成了什么",
-                "今天做完了什么",
-                "今天已完成任务"
-            )
-        } else {
-            listOf(
-                "告诉我今天未完成的任务",
-                "告诉我今天没完成的任务",
-                "告诉我今天未完成的人物",
-                "今天还有什么没完成",
-                "今天未完成任务",
-                "今天还有什么任务"
-            )
-        }
-        return keywords.any { normalized.contains(it) }
+    private fun isOutstandingQuery(text: String): Boolean {
+        val normalized = normalize(text)
+        val keywords = listOf(
+            "tell me about my today's outstanding tasks",
+            "tell me my today's outstanding tasks",
+            "tell me my outstanding tasks for today",
+            "what are my outstanding tasks today",
+            "what are my today's outstanding tasks",
+            "tell me today's outstanding tasks",
+            "tell me my unfinished tasks today",
+            "what are my unfinished tasks today"
+        )
+        return keywords.any { normalized.contains(normalize(it)) }
+    }
+
+    private fun isCompletedQuery(text: String): Boolean {
+        val normalized = normalize(text)
+        val keywords = listOf(
+            "tell me about my today's completed tasks",
+            "tell me my today's completed tasks",
+            "tell me my completed tasks for today",
+            "what are my completed tasks today",
+            "tell me today's completed tasks",
+            "what did i complete today"
+        )
+        return keywords.any { normalized.contains(normalize(it)) }
     }
 
     private fun isDeleteTodayTasks(text: String): Boolean {
-        val normalized = text.replace(" ", "")
+        val normalized = normalize(text)
         val keywords = listOf(
-            "删除今天的所有任务",
-            "删除今天所有任务",
-            "删掉今天的所有任务",
-            "删掉今天所有任务",
-            "清空今天的所有任务",
-            "清空今天所有任务"
+            "delete all my tasks for today",
+            "delete all my today tasks",
+            "delete all tasks for today",
+            "delete today's tasks",
+            "clear all my tasks for today",
+            "clear today's tasks"
         )
-        return keywords.any { normalized.contains(it) }
+        return keywords.any { normalized.contains(normalize(it)) }
     }
 
     private fun extractAddTask(text: String): String? {
-        val normalized = text.replace(" ", "")
-        val prefixRegex = Regex("^(记录一下|记录|记一下|记下|添加任务|添加|新增任务|新增|帮我记录|帮我记下)")
-        if (!prefixRegex.containsMatchIn(normalized)) {
-            return null
+        val trimmed = text.trim()
+        val patterns = listOf(
+            Regex("^i need to\\s+(.+)$", RegexOption.IGNORE_CASE),
+            Regex("^i have to\\s+(.+)$", RegexOption.IGNORE_CASE),
+            Regex("^remind me to\\s+(.+)$", RegexOption.IGNORE_CASE),
+            Regex("^add task\\s+(.+)$", RegexOption.IGNORE_CASE),
+            Regex("^add\\s+(.+)$", RegexOption.IGNORE_CASE),
+            Regex("^record\\s+(.+)$", RegexOption.IGNORE_CASE)
+        )
+        return patterns.firstNotNullOfOrNull { regex ->
+            regex.matchEntire(trimmed)?.groupValues?.get(1)?.trim()?.ifBlank { null }
         }
-
-        var content = normalized.replaceFirst(prefixRegex, "")
-        content = content.replaceFirst(Regex("^(我今天|今天)(要|想|需要|准备)?"), "")
-        content = content.replaceFirst(Regex("^完成(?=.{2,})"), "")
-        content = content.replaceFirst(Regex("^去(?=.{2,})"), "")
-        return content.ifBlank { null }
     }
 
     private fun extractCompleteTask(text: String): String? {
-        val normalized = text.replace(" ", "")
+        val trimmed = text.trim()
+        val patterns = listOf(
+            Regex("^(.+?)\\s+done$", RegexOption.IGNORE_CASE),
+            Regex("^mark\\s+(.+?)\\s+as\\s+done$", RegexOption.IGNORE_CASE),
+            Regex("^complete\\s+(.+)$", RegexOption.IGNORE_CASE),
+            Regex("^mark\\s+(.+?)\\s+completed$", RegexOption.IGNORE_CASE)
+        )
+        return patterns.firstNotNullOfOrNull { regex ->
+            regex.matchEntire(trimmed)?.groupValues?.get(1)?.trim()?.ifBlank { null }
+        }
+    }
 
-        Regex("^把(.+?)(标记)?完成(了)?$").matchEntire(normalized)?.let { return it.groupValues[1] }
-        Regex("^(.+?)(标记)?完成(了)?$").matchEntire(normalized)?.let { return it.groupValues[1] }
-        Regex("^完成(.+)$").matchEntire(normalized)?.let { return it.groupValues[1] }
-
-        return null
+    private fun normalize(text: String): String {
+        return text.lowercase()
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
 }
