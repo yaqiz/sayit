@@ -102,11 +102,11 @@ class TaskRepository(private val taskDao: TaskDao) {
             return if (completed) {
                 VoiceActionResult("${dayLabel}还没有已完成任务。")
             } else {
-                VoiceActionResult("${dayLabel}没有未完成任务。")
+                VoiceActionResult("${dayLabel}没有还没完成的任务。")
             }
         }
 
-        val prefix = if (completed) "${dayLabel}已完成" else "${dayLabel}未完成"
+        val prefix = if (completed) "${dayLabel}已完成" else "${dayLabel}还没完成"
         val titles = filtered.joinToString("，") { it.title }
         return VoiceActionResult("$prefix ${filtered.size} 项：$titles")
     }

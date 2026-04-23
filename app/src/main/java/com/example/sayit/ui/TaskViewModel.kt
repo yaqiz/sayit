@@ -3,6 +3,7 @@ package com.example.sayit.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.sayit.data.ReminderRepository
 import com.example.sayit.data.TaskEntity
 import com.example.sayit.data.TaskRepository
 import com.example.sayit.data.VoiceActionResult
@@ -40,6 +41,7 @@ data class TaskUiState(
     val tasksByDate: Map<LocalDate, DayTaskSummary> = emptyMap(),
     val selectedDate: LocalDate = LocalDate.now(),
     val visibleMonths: List<YearMonth> = buildVisibleMonths(),
+    val speechEngineLabel: String = "",
     val screenMode: ScreenMode = ScreenMode.TASK_LIST,
     val isListening: Boolean = false,
     val isProcessingVoice: Boolean = false,
@@ -49,7 +51,8 @@ data class TaskUiState(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaskViewModel(
-    private val repository: TaskRepository
+    private val repository: TaskRepository,
+    private val reminderRepository: ReminderRepository
 ) : ViewModel() {
     private val today = LocalDate.now()
     private val calendarStart = today.minusMonths(12).withDayOfMonth(1)
@@ -101,9 +104,10 @@ class TaskViewModel(
                 is VoiceCommand.AddTask -> repository.addTaskForDate(command.title, selectedDate)
                 is VoiceCommand.CompleteTask -> repository.markTaskCompletedForDate(command.query, selectedDate)
                 is VoiceCommand.QueryTasks -> repository.buildSummaryForDate(command.completed, selectedDate)
-                VoiceCommand.DeleteTodayTasks -> repository.deleteAllTasksForToday()
+                VoiceCommand.DeleteSelectedDateTasks -> repository.deleteAllTasksForDate(selectedDate)
+                is VoiceCommand.CreateReminder -> reminderRepository.createReminder(command.content, command.triggerAtMillis)
                 is VoiceCommand.Unknown -> VoiceActionResult(
-                    "没有识别到有效指令。可以说：记录小红书文案，或者：告诉我今天未完成的任务。"
+                    "没有识别到有效指令。可以说：记录小红书文案，告诉我今天还没完成的任务，或者：5分钟后提醒我去看烤箱。"
                 )
             }
             publishMessage(result.message, speak = true)
@@ -118,6 +122,10 @@ class TaskViewModel(
                 statusMessage = "正在听，请直接说任务指令..."
             )
         }
+    }
+
+    fun setSpeechEngineLabel(label: String) {
+        _uiState.update { it.copy(speechEngineLabel = label) }
     }
 
     fun onListeningFinishedWithoutResult() {
@@ -165,8 +173,12 @@ class TaskViewModel(
         val current = _uiState.value
         return when (current.screenMode) {
             ScreenMode.TASK_LIST -> {
-                _uiState.update { it.copy(screenMode = ScreenMode.CALENDAR) }
-                true
+                if (current.selectedDate == today) {
+                    false
+                } else {
+                    _uiState.update { it.copy(screenMode = ScreenMode.CALENDAR) }
+                    true
+                }
             }
 
             ScreenMode.CALENDAR -> {
@@ -202,12 +214,13 @@ private fun buildVisibleMonths(): List<YearMonth> {
 }
 
 class TaskViewModelFactory(
-    private val repository: TaskRepository
+    private val repository: TaskRepository,
+    private val reminderRepository: ReminderRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TaskViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TaskViewModel(repository) as T
+            return TaskViewModel(repository, reminderRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

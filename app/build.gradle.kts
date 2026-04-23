@@ -74,5 +74,6 @@ dependencies {
 
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
+    implementation(files("libs/sherpa-onnx-1.12.34.aar"))
     ksp("androidx.room:room-compiler:2.6.1")
 }

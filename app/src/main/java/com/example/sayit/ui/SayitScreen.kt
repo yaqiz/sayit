@@ -76,11 +76,11 @@ fun SayitScreen(
     onToggleTask: (TaskEntity, Boolean) -> Unit,
     onOpenCalendar: () -> Unit,
     onOpenDate: (LocalDate) -> Unit,
-    onBackToCalendar: () -> Boolean,
+    onBackPressed: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BackHandler {
-        onBackToCalendar()
+        onBackPressed()
     }
 
     Surface(modifier = modifier.fillMaxSize()) {
@@ -153,6 +153,7 @@ private fun TaskListScreen(
                 item {
                     HeaderCard(
                         selectedDate = uiState.selectedDate,
+                        speechEngineLabel = uiState.speechEngineLabel,
                         isListening = uiState.isListening,
                         isProcessingVoice = uiState.isProcessingVoice,
                         statusMessage = uiState.statusMessage,
@@ -228,6 +229,7 @@ private fun CalendarScreen(
 @Composable
 private fun HeaderCard(
     selectedDate: LocalDate,
+    speechEngineLabel: String,
     isListening: Boolean,
     isProcessingVoice: Boolean,
     statusMessage: String,
@@ -281,6 +283,14 @@ private fun HeaderCard(
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
+            if (speechEngineLabel.isNotBlank()) {
+                Text(
+                    text = "语音模式：$speechEngineLabel",
+                    color = Color(0xFFB9D8FF),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
             if (isListening || isProcessingVoice) {
                 Text(
                     text = if (isListening) "状态：正在听你说话..." else "状态：正在处理识别结果...",
@@ -376,7 +386,7 @@ private fun TipsCard() {
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = if (expanded) "<<" else ">>",
+                    text = if (expanded) "↑" else "↓",
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                     color = Color(0xFF245FAF)
                 )
@@ -386,9 +396,11 @@ private fun TipsCard() {
             }
             Text(text = "记录我今天完成小红书文案")
             Text(text = "小红书文案完成")
-            Text(text = "告诉我今天未完成的任务")
+            Text(text = "告诉我今天还没完成的任务")
             Text(text = "告诉我今天完成的任务")
-            Text(text = "删除今天的所有任务")
+            Text(text = "删除当天的所有任务")
+            Text(text = "今天下午4点提醒我收衣服")
+            Text(text = "5分钟后提醒我去看烤箱")
         }
     }
 }
